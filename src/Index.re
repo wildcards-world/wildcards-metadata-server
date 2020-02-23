@@ -1,12 +1,16 @@
 open Serbet.Endpoint;
 open Async;
+open Belt;
+
+Dotenv.config();
+[@bs.val] external useHttps: string = "process.env.USE_HTTPS";
 
 module TokenUri = {
   [@decco.decode]
   type tokenUriParams = {tokenId: string};
   [@decco.encode]
   type attributes = {
-    tokenId: int,
+    tokenId: string,
     tokenAddress: string,
   };
   [@decco.encode]
@@ -22,17 +26,27 @@ module TokenUri = {
       path: "/art/:tokenId",
       handler: req => {
         let%Async params = req.requireParams(tokenUriParams_decode);
-        OkJson(
-          {
-            description: "boom bam",
-            name: params.tokenId,
-            image: "https://ipfs.io/ipfs/QmWac15m5eRSsV9Jg3MK7f4yLpFm8SbyjqGLAAb52CLyeN",
-            attributes: {
-              tokenId: 6,
-              tokenAddress: "0x6ad0f855c97eb80665f2d0c7d8204895e052c373",
-            },
+
+        let optArtwork =
+          GalleryArtState.runningState->Js.Dict.get(params.tokenId);
+
+        (
+          switch (optArtwork) {
+          | Some(artwork) =>
+            OkJson(
+              {
+                description: "This gallery space is always for sale!",
+                name: "Always for sale gallery space 1",
+                image: artwork.imageUrl,
+                attributes: {
+                  tokenId: artwork.id,
+                  tokenAddress: artwork.address,
+                },
+              }
+              ->body_out_encode,
+            )
+          | None => NotFound("Couldn't find a token of that id")
           }
-          ->body_out_encode,
         )
         ->async;
       },
@@ -41,4 +55,14 @@ module TokenUri = {
 
 let app = Serbet.application(~port=5000, [TokenUri.endpoint]);
 
-Https.setupHttps(. app.expressApp)->ignore;
+Js.log(useHttps);
+Js.log(useHttps->String.uppercase_ascii);
+if (useHttps->String.uppercase_ascii == "TRUE") {
+  Js.log("true");
+  Https.setupHttps(. app.expressApp)->ignore;
+} else {
+  Js.log("false");
+  ();
+};
+
+// GalleryArtState.runStateWatcher();
