@@ -55,14 +55,10 @@ module TokenUri = {
 
 let app = Serbet.application(~port=5000, [TokenUri.endpoint]);
 
-Js.log(useHttps);
-Js.log(useHttps->String.uppercase_ascii);
 if (useHttps->String.uppercase_ascii == "TRUE") {
-  Js.log("true");
   Https.setupHttps(. app.expressApp)->ignore;
 } else {
-  Js.log("false");
   ();
 };
 
-// GalleryArtState.runStateWatcher();
+GalleryArtState.runStateWatcher();
