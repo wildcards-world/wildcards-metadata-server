@@ -73,8 +73,17 @@ let runStateWatcher = () => {
                         {id: tokenId, address: tokenAddress, imageUrl},
                       )
                     ->ignore;
-                    Fetch.fetch(
-                      {j|https://api.opensea.io/api/v1/asset/0x09edf208c44952F90Bc7670C6F3c6c8BCFFb7AD0/$id/?force_update=true|j},
+                    (
+                      Fetch.fetch(
+                        {j|https://api.opensea.io/api/v1/asset/0x09edf208c44952F90Bc7670C6F3c6c8BCFFb7AD0/$id/?force_update=true|j},
+                      )
+                      |> then_(Fetch.Response.json)
+                      |> then_(json => {
+                           // TODO: check that the result is correct (ie it did infact refresh)
+                           //       An additional check can be done with the `/validate/` extension. The "errors" array should be empty.
+                           let result = json->openSeaAsset_decode;
+                           result |> resolve;
+                         })
                     )
                     ->ignore;
                     () |> resolve;

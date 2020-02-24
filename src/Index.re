@@ -27,20 +27,27 @@ module TokenUri = {
       handler: req => {
         let%Async params = req.requireParams(tokenUriParams_decode);
 
-        let optArtwork =
-          GalleryArtState.runningState->Js.Dict.get(params.tokenId);
+        // Because jason is silly and deployed token 0 with 1, and 1 with 2, classic off by one!
+        let tokenId =
+          switch (params.tokenId) {
+          | "1" => "0"
+          | "2" => "1"
+          | id => id
+          };
+
+        let optArtwork = GalleryArtState.runningState->Js.Dict.get(tokenId);
 
         (
           switch (optArtwork) {
-          | Some(artwork) =>
+          | Some({id, address, imageUrl}) =>
             OkJson(
               {
                 description: "This gallery space is always for sale!",
-                name: "Always for sale gallery space 1",
-                image: artwork.imageUrl,
+                name: {j|Always for sale gallery space #$id|j},
+                image: imageUrl,
                 attributes: {
-                  tokenId: artwork.id,
-                  tokenAddress: artwork.address,
+                  tokenId: id,
+                  tokenAddress: address,
                 },
               }
               ->body_out_encode,
