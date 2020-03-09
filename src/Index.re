@@ -68,3 +68,4 @@ if (useHttps->String.uppercase_ascii == "TRUE") {
 };
 
 GalleryArtState.runStateWatcher();
+ParcelOwnershipGranter.subscribeToBuyEvents();
