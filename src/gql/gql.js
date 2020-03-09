@@ -3,6 +3,7 @@ let fetch = require("node-fetch").default;
 let ApolloClient = require("apollo-client").default;
 
 // Setup the network "links"
+const { SubscriptionClient } = require("subscriptions-transport-ws");
 let { WebSocketLink } = require("apollo-link-ws");
 let { HttpLink } = require("apollo-link-http");
 let ws = require("ws");
@@ -17,13 +18,29 @@ const httpLink = new HttpLink({
 });
 
 // Create a WebSocket link:
-const wsLink = new WebSocketLink({
-  uri: "wss://api.thegraph.com/subgraphs/name/jasoons/always-for-sale-gallery", // use wss for a secure endpoint
-  options: {
+const subscriptionClient = new SubscriptionClient(
+  "wss://api.thegraph.com/subgraphs/name/jasoons/always-for-sale-gallery", // use wss for a secure endpoint
+  {
+    timeout: 30000,
+    lazy: false,
+    reconnectionAttempts: 10,
+    connectionCallback: error => {
+      console.log("connected to socket", { error });
+    },
+    inactivityTimeout: 500,
     reconnect: true
   },
-  webSocketImpl: ws
-});
+  ws
+);
+const wsLink = new WebSocketLink(subscriptionClient);
+
+// For analysis purposes...
+subscriptionClient.onConnected(() => console.log("WS -- Connected!!"));
+subscriptionClient.onReconnected(() => console.log("WS -- RE-Connected!!"));
+subscriptionClient.onConnecting(() => console.log("WS -- Connecting!!"));
+subscriptionClient.onReconnecting(() => console.log("WS -- RE-Connecting!!"));
+subscriptionClient.onDisconnected(() => console.log("WS -- DIS-Connecting!!"));
+subscriptionClient.onError(() => console.log("WS -- Error!!"));
 
 // using the ability to split links, you can send data to each link
 // depending on what kind of operation is being sent

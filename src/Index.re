@@ -1,6 +1,5 @@
 open Serbet.Endpoint;
 open Async;
-open Belt;
 
 Dotenv.config();
 [@bs.val] external useHttps: string = "process.env.USE_HTTPS";
