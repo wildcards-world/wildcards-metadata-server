@@ -3,11 +3,32 @@ open Belt;
 
 module Artworks = [%graphql
   {|
-    subscription {
-      artWorks(first: 5) {
+    query {
+      artWorks(first: 10) {
         id
         tokenAddress
         tokenId
+      }
+    }
+  |}
+];
+
+module LatestArtwork = [%graphql
+  {|
+    subscription {
+      lastChangedArtwork(id: "0") {
+        count
+        tokenAddress
+        tokenId
+      }
+    }
+  |}
+];
+module LatestArtChangeCount = [%graphql
+  {|
+    query {
+      lastChangedArtwork(id: "0") {
+        count
       }
     }
   |}
@@ -27,74 +48,116 @@ type artwork = {
   tokenId: string,
 };
 type artworks = {artWorks: array(artwork)};
-// TODO: this could probably use decco instead!
+type lastChangedArtwork = {lastChangedArtwork: artwork};
+type countObj = {count: string};
+
+// TODO: this should  use decco instead!
 external dangerousConversion: Js.Json.t => artworks = "%identity";
+external dangerousLastChangedArtwork: Js.Json.t => lastChangedArtwork =
+  "%identity";
+external dangerousGetCount: Js.Json.t => countObj = "%identity";
 
 [@decco.decode]
 type openSeaAsset = {image_url: string};
 
+let getArtworkDetails = artwork => {
+  let {id, tokenId, tokenAddress} = artwork;
+  Js.log({j|https://api.opensea.io/api/v1/asset/$tokenAddress/$tokenId/|j});
+  Js.Promise.(
+    Fetch.fetch(
+      {j|https://api.opensea.io/api/v1/asset/$tokenAddress/$tokenId/|j},
+    )
+    |> then_(Fetch.Response.json)
+    |> then_(json => {json->openSeaAsset_decode |> resolve})
+    |> then_(imgUrlResult => {
+         (
+           switch (imgUrlResult) {
+           | Result.Ok(result) => result.image_url
+           | Result.Error(error) =>
+             Js.log(error);
+             "cannot load image (TODO: put a default image)";
+           }
+         )
+         |> resolve
+       })
+    |> then_(imageUrl => {
+         runningState
+         ->Js.Dict.set(id, {id: tokenId, address: tokenAddress, imageUrl})
+         ->ignore;
+         (
+           Fetch.fetch(
+             {j|https://api.opensea.io/api/v1/asset/0x09edf208c44952F90Bc7670C6F3c6c8BCFFb7AD0/$id/?force_update=true|j},
+           )
+           |> then_(Fetch.Response.json)
+           |> then_(json => {
+                // TODO: check that the result is correct (ie it did infact refresh)
+                //       An additional check can be done with the `/validate/` extension. The "errors" array should be empty.
+                let result = json->openSeaAsset_decode;
+                result |> resolve;
+              })
+         )
+         ->ignore;
+         () |> resolve;
+       })
+  )
+  ->ignore;
+};
+
+let artChangeCount = ref("NOT_SET_YET");
+
+// I have separated this so I can easily restart this function!
+let startArtUpdateSubscription = artChangeSubscriptionMade =>
+  Gql.makeQuery(
+    artChangeSubscriptionMade,
+    None,
+    (. json) => {
+      artChangeCount := dangerousGetCount(json).count;
+      Js.log(json);
+      let artwork = dangerousLastChangedArtwork(json);
+
+      artwork.lastChangedArtwork->getArtworkDetails->ignore;
+    },
+  )
+  ->ignore;
+
 let runStateWatcher = () => {
-  let stateChangeSubscription = Artworks.make();
-  let stateChangeSubscriptionMade = Gql.gql(. stateChangeSubscription##query);
+  let getInitialArtworksQuery = Artworks.make();
+  let getInitialArtworksQueryMade = Gql.gql(. getInitialArtworksQuery##query);
 
   Gql.makeQuery(
-    stateChangeSubscriptionMade,
+    getInitialArtworksQueryMade,
     None,
     (. json) => {
       let artworks = dangerousConversion(json);
 
-      (
-        artworks.artWorks
-        |> Js.Array.map(artwork => {
-             let {id, tokenId, tokenAddress} = artwork;
-             Js.log(
-               {j|https://api.opensea.io/api/v1/asset/$tokenAddress/$tokenId/|j},
-             );
-             Js.Promise.(
-               Fetch.fetch(
-                 {j|https://api.opensea.io/api/v1/asset/$tokenAddress/$tokenId/|j},
-               )
-               |> then_(Fetch.Response.json)
-               //  |> then_(json => openSeaAsset_decode)
-               |> then_(json => {json->openSeaAsset_decode |> resolve})
-               |> then_(imgUrlResult => {
-                    (
-                      switch (imgUrlResult) {
-                      | Result.Ok(result) => result.image_url
-                      | Result.Error(error) => "cannot load image (TODO: put a default image)"
-                      }
-                    )
-                    |> resolve
-                  })
-               |> then_(imageUrl => {
-                    runningState
-                    ->Js.Dict.set(
-                        id,
-                        {id: tokenId, address: tokenAddress, imageUrl},
-                      )
-                    ->ignore;
-                    (
-                      Fetch.fetch(
-                        {j|https://api.opensea.io/api/v1/asset/0x09edf208c44952F90Bc7670C6F3c6c8BCFFb7AD0/$id/?force_update=true|j},
-                      )
-                      |> then_(Fetch.Response.json)
-                      |> then_(json => {
-                           // TODO: check that the result is correct (ie it did infact refresh)
-                           //       An additional check can be done with the `/validate/` extension. The "errors" array should be empty.
-                           let result = json->openSeaAsset_decode;
-                           result |> resolve;
-                         })
-                    )
-                    ->ignore;
-                    () |> resolve;
-                  })
-             )
-             //  |> then_(Fetch.Response.json)
-             ->ignore;
-           })
-      )
-      ->ignore;
+      (artworks.artWorks |> Js.Array.map(getArtworkDetails))->ignore;
     },
   )
   ->ignore;
+
+  let artChangeSubscription = LatestArtwork.make();
+  let artChangeSubscriptionMade = Gql.gql(. artChangeSubscription##query);
+  startArtUpdateSubscription(artChangeSubscriptionMade);
+
+  let getArtChangeCountQuery = LatestArtChangeCount.make();
+  let getArtChangeCountQueryMade = Gql.gql(. getArtChangeCountQuery##query);
+
+  Js.Global.setInterval(
+    () =>
+      Gql.makeQuery(
+        getArtChangeCountQueryMade,
+        None,
+        (. json) => {
+          let count = dangerousGetCount(json).count;
+          if (count != artChangeCount^) {
+            Js.log("The count was out of sync! Restarting the subscription.");
+            startArtUpdateSubscription(artChangeSubscriptionMade);
+          } else {
+            ();
+          };
+        },
+      )
+      ->ignore,
+    6000,
+  );
 };
