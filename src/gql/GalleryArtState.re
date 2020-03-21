@@ -114,10 +114,11 @@ let startArtUpdateSubscription = artChangeSubscriptionMade =>
     None,
     (. json) => {
       artChangeCount := dangerousGetCount(json).count;
-      Js.log(json);
-      let artwork = [%raw "{...json, id: json.artSpotId}"];
+      let lastChangedArtwork = [%raw
+        "{...json.lastChangedArtwork, id: json.lastChangedArtwork.artSpotId}"
+      ];
 
-      artwork.lastChangedArtwork->getArtworkDetails->ignore;
+      lastChangedArtwork->getArtworkDetails->ignore;
     },
   )
   ->ignore;
