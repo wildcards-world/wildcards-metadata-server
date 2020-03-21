@@ -26,14 +26,7 @@ module TokenUri = {
       handler: req => {
         let%Async params = req.requireParams(tokenUriParams_decode);
 
-        // Because jason is silly and deployed token 0 with 1, and 1 with 2, classic off by one!
-        let tokenId =
-          switch (params.tokenId) {
-          | "1" => "0"
-          | "2" => "1"
-          | id => id
-          };
-
+        let tokenId = params.tokenId;
         let optArtwork = GalleryArtState.runningState->Js.Dict.get(tokenId);
 
         (
