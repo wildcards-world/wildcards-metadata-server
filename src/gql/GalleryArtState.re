@@ -17,6 +17,7 @@ module LatestArtwork = [%graphql
   {|
     subscription {
       lastChangedArtwork(id: "0") {
+        artSpotId
         count
         tokenAddress
         tokenId
@@ -52,17 +53,17 @@ type lastChangedArtwork = {lastChangedArtwork: artwork};
 type countObj = {count: string};
 
 // TODO: this should  use decco instead!
-external dangerousConversion: Js.Json.t => artworks = "%identity";
-external dangerousLastChangedArtwork: Js.Json.t => lastChangedArtwork =
-  "%identity";
-external dangerousGetCount: Js.Json.t => countObj = "%identity";
+let dangerousConversion: Js.Json.t => artworks = Obj.magic;
+let dangerousGetCount: Js.Json.t => countObj = Obj.magic;
 
 [@decco.decode]
 type openSeaAsset = {image_url: string};
 
 let getArtworkDetails = artwork => {
   let {id, tokenId, tokenAddress} = artwork;
-  Js.log({j|https://api.opensea.io/api/v1/asset/$tokenAddress/$tokenId/|j});
+  Js.log(
+    {j|Fetching the artwork details now for $id!! - https://api.opensea.io/api/v1/asset/$tokenAddress/$tokenId/|j},
+  );
   Js.Promise.(
     Fetch.fetch(
       {j|https://api.opensea.io/api/v1/asset/$tokenAddress/$tokenId/|j},
@@ -84,6 +85,7 @@ let getArtworkDetails = artwork => {
          runningState
          ->Js.Dict.set(id, {id: tokenId, address: tokenAddress, imageUrl})
          ->ignore;
+
          (
            Fetch.fetch(
              {j|https://api.opensea.io/api/v1/asset/0x09edf208c44952F90Bc7670C6F3c6c8BCFFb7AD0/$id/?force_update=true|j},
@@ -113,7 +115,7 @@ let startArtUpdateSubscription = artChangeSubscriptionMade =>
     (. json) => {
       artChangeCount := dangerousGetCount(json).count;
       Js.log(json);
-      let artwork = dangerousLastChangedArtwork(json);
+      let artwork = [%raw "{...json, id: json.artSpotId}"];
 
       artwork.lastChangedArtwork->getArtworkDetails->ignore;
     },
@@ -143,7 +145,7 @@ let runStateWatcher = () => {
   let getArtChangeCountQueryMade = Gql.gql(. getArtChangeCountQuery##query);
 
   Js.Global.setInterval(
-    () =>
+    () => {
       Gql.makeQuery(
         getArtChangeCountQueryMade,
         None,
@@ -157,7 +159,8 @@ let runStateWatcher = () => {
           };
         },
       )
-      ->ignore,
+      ->ignore
+    },
     6000,
   );
 };
