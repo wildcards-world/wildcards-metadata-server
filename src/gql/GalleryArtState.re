@@ -152,29 +152,19 @@ let runStateWatcher = () => {
   Js.Global.setInterval(
     () => {
       globalTestCounter := globalTestCounter^ + 1;
-      if (globalTestCounter^ mod 10 == 0) {
-        Js.log("Checking if it is in sync!");
-      } else {
-        ();
-      };
 
       Gql.makeQuery(
         getArtChangeCountQueryMade,
         None,
         (. json) => {
           let count = [%raw "json.lastChangedArtwork.count"];
-          if (globalTestCounter^ mod 10 == 0) {
-            Js.log4(
-              "is it in sync?",
-              count,
-              artChangeCount^,
-              count != artChangeCount^,
-            );
-          } else {
-            ();
-          };
+
           if (count != artChangeCount^) {
-            Js.log("The count was out of sync! Restarting the subscription.");
+            Js.log3(
+              "The count was out of sync! Restarting the subscription. It went out of sync after polling ",
+              globalTestCounter^,
+              " times.",
+            );
             startArtUpdateSubscription(artChangeSubscriptionMade);
           } else {
             ();
