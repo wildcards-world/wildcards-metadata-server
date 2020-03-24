@@ -59,8 +59,8 @@ let dangerousGetCount: Js.Json.t => countObj = Obj.magic;
 [@decco.decode]
 type openSeaAsset = {image_url: string};
 
-let getArtworkDetails = artwork => {
-  let {id, tokenId, tokenAddress} = artwork;
+let getArtworkDetails = ({id, tokenId, tokenAddress} as _artwork) => {
+  Js.log(_artwork);
   Js.log(
     {j|Fetching the artwork details now for $id!! - https://api.opensea.io/api/v1/asset/$tokenAddress/$tokenId/|j},
   );
@@ -108,7 +108,8 @@ let getArtworkDetails = artwork => {
 let artChangeCount = ref("NOT_SET_YET");
 
 // I have separated this so I can easily restart this function!
-let startArtUpdateSubscription = artChangeSubscriptionMade =>
+let startArtUpdateSubscription = artChangeSubscriptionMade => {
+  Js.log("Starting a subscription!");
   Gql.makeQuery(
     artChangeSubscriptionMade,
     None,
@@ -122,6 +123,9 @@ let startArtUpdateSubscription = artChangeSubscriptionMade =>
     },
   )
   ->ignore;
+};
+
+let globalTestCounter = ref(0);
 
 let runStateWatcher = () => {
   let getInitialArtworksQuery = Artworks.make();
@@ -147,11 +151,28 @@ let runStateWatcher = () => {
 
   Js.Global.setInterval(
     () => {
+      globalTestCounter := globalTestCounter^ + 1;
+      if (globalTestCounter^ mod 10 == 0) {
+        Js.log("Checking if it is in sync!");
+      } else {
+        ();
+      };
+
       Gql.makeQuery(
         getArtChangeCountQueryMade,
         None,
         (. json) => {
           let count = dangerousGetCount(json).count;
+          if (globalTestCounter^ mod 10 == 0) {
+            Js.log4(
+              "is it in sync?",
+              count,
+              artChangeCount^,
+              count != artChangeCount^,
+            );
+          } else {
+            ();
+          };
           if (count != artChangeCount^) {
             Js.log("The count was out of sync! Restarting the subscription.");
             startArtUpdateSubscription(artChangeSubscriptionMade);
@@ -160,7 +181,7 @@ let runStateWatcher = () => {
           };
         },
       )
-      ->ignore
+      ->ignore;
     },
     6000,
   );
