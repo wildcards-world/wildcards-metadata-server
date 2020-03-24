@@ -54,7 +54,7 @@ type countObj = {count: string};
 
 // TODO: this should  use decco instead!
 let dangerousConversion: Js.Json.t => artworks = Obj.magic;
-let dangerousGetCount: Js.Json.t => countObj = Obj.magic;
+// let dangerousGetCount: Js.Json.t => countObj = Obj.magic;
 
 [@decco.decode]
 type openSeaAsset = {image_url: string};
@@ -114,7 +114,7 @@ let startArtUpdateSubscription = artChangeSubscriptionMade => {
     artChangeSubscriptionMade,
     None,
     (. json) => {
-      artChangeCount := dangerousGetCount(json).count;
+      artChangeCount := [%raw "json.lastChangedArtwork.count"];
       let lastChangedArtwork = [%raw
         "{...json.lastChangedArtwork, id: json.lastChangedArtwork.artSpotId}"
       ];
@@ -162,7 +162,7 @@ let runStateWatcher = () => {
         getArtChangeCountQueryMade,
         None,
         (. json) => {
-          let count = dangerousGetCount(json).count;
+          let count = [%raw "json.lastChangedArtwork.count"];
           if (globalTestCounter^ mod 10 == 0) {
             Js.log4(
               "is it in sync?",
