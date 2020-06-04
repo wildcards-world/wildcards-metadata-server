@@ -50,6 +50,26 @@ module TokenUri = {
         ->async;
       },
     });
+  let wildcardsEndpoint =
+    Serbet.endpoint({
+      verb: GET,
+      path: "/token/:tokenId",
+      handler: req => {
+        let%Async params = req.requireParams(tokenUriParams_decode);
+
+        let tokenId = params.tokenId;
+        let optWildcardMetadata = WildcardMetadata.getMetadata(tokenId);
+
+        (
+          switch (optWildcardMetadata) {
+          | Some(wildcardMetadata) =>
+            OkJson(wildcardMetadata->WildcardMetadata.wildcardMetaData_encode)
+          | None => NotFound("Couldn't find a token of that id")
+          }
+        )
+        ->async;
+      },
+    });
 };
 module ThreeBox = {
   [@decco.decode]
@@ -106,7 +126,11 @@ module ThreeBox = {
 let app =
   Serbet.application(
     ~port=5000,
-    [TokenUri.endpoint, ThreeBox.verification3boxTwitter],
+    [
+      TokenUri.endpoint,
+      TokenUri.wildcardsEndpoint,
+      ThreeBox.verification3boxTwitter,
+    ],
   );
 
 if (useHttps->String.uppercase_ascii == "TRUE") {
