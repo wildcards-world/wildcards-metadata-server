@@ -139,5 +139,5 @@ if (useHttps->String.uppercase_ascii == "TRUE") {
   ();
 };
 
-// GalleryArtState.runStateWatcher();
+GalleryArtState.runStateWatcher();
 ParcelOwnershipGranter.subscribeToBuyEvents();
