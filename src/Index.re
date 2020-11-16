@@ -1,9 +1,6 @@
 open Serbet.Endpoint;
 open Async;
 
-Dotenv.config();
-[@bs.val] external useHttps: string = "process.env.USE_HTTPS";
-
 module TokenUri = {
   [@decco.decode]
   type tokenUriParams = {tokenId: string};
@@ -19,37 +16,7 @@ module TokenUri = {
     image: string,
     attributes,
   };
-  let endpoint =
-    Serbet.endpoint({
-      verb: GET,
-      path: "/art/:tokenId",
-      handler: req => {
-        let%Async params = req.requireParams(tokenUriParams_decode);
 
-        let tokenId = params.tokenId;
-        let optArtwork = GalleryArtState.runningState->Js.Dict.get(tokenId);
-
-        (
-          switch (optArtwork) {
-          | Some({id, address, imageUrl}) =>
-            OkJson(
-              {
-                description: "This gallery space is always for sale!",
-                name: {j|Always for sale gallery space #$id|j},
-                image: imageUrl,
-                attributes: {
-                  tokenId: id,
-                  tokenAddress: address,
-                },
-              }
-              ->body_out_encode,
-            )
-          | None => NotFound("Couldn't find a token of that id")
-          }
-        )
-        ->async;
-      },
-    });
   let wildcardsEndpoint =
     Serbet.endpoint({
       verb: GET,
@@ -127,17 +94,8 @@ let app =
   Serbet.application(
     ~port=5000,
     [
-      TokenUri.endpoint,
       TokenUri.wildcardsEndpoint,
       ThreeBox.verification3boxTwitter,
     ],
   );
 
-if (useHttps->String.uppercase_ascii == "TRUE") {
-  Https.setupHttps(. app.expressApp)->ignore;
-} else {
-  ();
-};
-
-GalleryArtState.runStateWatcher();
-ParcelOwnershipGranter.subscribeToBuyEvents();
