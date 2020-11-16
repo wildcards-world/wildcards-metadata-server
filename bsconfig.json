@@ -24,8 +24,9 @@
     "decco",
     "serbet",
     "bs-fetch",
-    "reason-apollo-client",
     "@reasonml-community/graphql-ppx",
+    "reason-apollo-client",
+    "reason-promise"
   ],
   "ppx-flags": [
     "@reasonml-community/graphql-ppx/ppx",

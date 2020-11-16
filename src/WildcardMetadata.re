@@ -1,3 +1,5 @@
+open Belt;
+
 [@decco.encode]
 type wildcardMetaData = {
   artist: string,
@@ -82,3 +84,129 @@ let metadata: Js.Dict.t(wildcardMetaData) = [%raw
 let getMetadata = tokenId => {
   metadata->Js.Dict.get(tokenId);
 };
+
+module ApolloQueryResult = ApolloClient.Types.ApolloQueryResult;
+module ObservableQuery = ApolloClient.Types.ObservableQuery;
+
+module GetWildcardMetadata = [%graphql
+  {|
+    query ($tokenId: String!) {
+      wildcardData (where: {id: {_eq: $tokenId}}) {
+        id
+        artistOfWildcard {
+          name
+          website
+        }
+        description @ppxCustom(module: "GqlConverters.StringArray")
+        name
+        image
+        species
+        organization {
+          name
+          website
+        }
+      }
+    }
+  |}
+];
+let getWildcardsData = tokenId =>
+  Client.instance.query(
+    ~query=(module GetWildcardMetadata),
+    GetWildcardMetadata.makeVariables(~tokenId, ()),
+  )
+  ->Utils.Promise.then_(result => {
+      Js.Promise.resolve(
+        switch (result) {
+        | Ok({data: {wildcardData: [|{
+          artistOfWildcard,
+          description,
+          name,
+          image,
+          species,
+          organization,
+        }|]}}) =>
+          open Types;
+          Some({
+            name,
+            image: image->Option.map(image => "https://dd2wadt5nc0o7.cloudfront.net" ++ image),
+            description: description->Array.reduce("", (fullString, next) => fullString ++ "\n\n" ++ next),
+            artist: artistOfWildcard->Option.map(artist => artist.name),
+            artistWebsite: artistOfWildcard->Option.flatMap(artist => artist.website),
+            organisation: organization->Option.map(org => org.name),
+            organisationWebsite: organization->Option.map(org => org.website),
+            species
+          })
+        | Error(error) => 
+          Js.log2("there was an error", error);
+          None
+        | _ => 
+          Js.log("pattern not matched");
+          None
+        },
+      )
+    });
+// module AddTodoMutation = [%graphql
+//   {|
+//     mutation AddTodo($text: String!) {
+//       todo: addTodoSimple(text: $text) {
+//         id
+//         text
+//       }
+//     }
+//   |}
+// ];
+
+// module TodosQuery = [%graphql
+//   {|
+//     query TodosQuery {
+//       todos: allTodos {
+//         id
+//         text
+//         completed
+//       }
+//     }
+//   |}
+// ];
+
+// let logTodos = _ =>
+//   Client.instance.query(~query=(module TodosQuery), ())
+//   ->Utils.Promise.then_(result => {
+//       Js.Promise.resolve(
+//         switch (result) {
+//         | Ok({data: {todos}}) => Js.log2("query To-Dos: ", todos)
+//         | Error(error) => Js.log2("Error: ", error)
+//         },
+//       )
+//     })
+//   ->Utils.Promise.ignore;
+
+// let addTodo = _ =>
+//   Client.instance.mutate(
+//     ~mutation=(module AddTodoMutation),
+//     {text: "Another To-Do"},
+//   )
+//   ->Utils.Promise.then_(result =>
+//       Js.Promise.resolve(
+//         switch (result) {
+//         | Ok({data}) => Js.log2("mutate result: ", data)
+//         | Error(error) => Js.log2("Error: ", error)
+//         },
+//       )
+//     )
+//   ->Utils.Promise.ignore;
+
+// let observableQuery =
+//   Client.instance.watchQuery(~query=(module TodosQuery), ());
+
+// let watchQuerySubscription =
+//   observableQuery.subscribe(
+//     ~onNext=
+//       result =>
+//         switch (result) {
+//         | {data: Some({todos})} => Js.log2("watchQuery To-Dos: ", todos)
+//         | _ => ()
+//         },
+//     (),
+//   );
+// // Unsubscribe like so:
+// // watchQuerySubscription.unsubscribe();

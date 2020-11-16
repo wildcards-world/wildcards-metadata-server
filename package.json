@@ -10,14 +10,15 @@
     "re:clean": "bsb -clean-world",
     "start": "node ./src/index.js",
     "watch": "nodemon ./src/index.js",
-    "generate-ppx-schema": "gqlschema https://api.thegraph.com/subgraphs/name/jasoons/always-for-sale-gallery -i -o graphql_schema.json"
+    "generate-ppx-schema": "get-graphql-schema  https://api.wildcards.world/v1/graphql -j >| graphql_schema.json"
   },
   "devDependencies": {
     "bs-let": "^0.1.16",
-    "bs-platform": "^8.3.3",
+    "bs-platform": "8.3.2",
     "decco": "^1.3.0",
     "dotenv": "^8.2.0",
     "gentype": "^3.38.0",
+    "get-graphql-schema": "^2.1.2",
     "gql-tools": "^0.0.15",
     "graphql": "^15.4.0",
     "nodemon": "^2.0.6",
@@ -26,12 +27,14 @@
   "dependencies": {
     "3box": "^1.22.2",
     "@apollo/client": "^3.2.5",
-    "@reasonml-community/graphql-ppx": "^1.0.1",
+    "@reasonml-community/graphql-ppx": "1.0.0",
     "bs-express": "^1.0.2",
     "bs-fetch": "^0.6.2",
     "graphql-tag": "^2.11.0",
     "isomorphic-fetch": "^3.0.0",
+    "react": "^17.0.1",
     "reason-apollo-client": "^1.0.0-beta.1",
+    "reason-promise": "^1.1.2",
     "serbet": "^0.4.0",
     "subscriptions-transport-ws": "^0.9.18"
   }

@@ -1,22 +1,8 @@
 open Serbet.Endpoint;
 open Async;
+open Types;
 
 module TokenUri = {
-  [@decco.decode]
-  type tokenUriParams = {tokenId: string};
-  [@decco.encode]
-  type attributes = {
-    tokenId: string,
-    tokenAddress: string,
-  };
-  [@decco.encode]
-  type body_out = {
-    description: string,
-    name: string,
-    image: string,
-    attributes,
-  };
-
   let wildcardsEndpoint =
     Serbet.endpoint({
       verb: GET,
@@ -25,15 +11,17 @@ module TokenUri = {
         let%Async params = req.requireParams(tokenUriParams_decode);
 
         let tokenId = params.tokenId;
-        let optWildcardMetadata = WildcardMetadata.getMetadata(tokenId);
+        let%Async optWildcardData = WildcardMetadata.getWildcardsData(tokenId);
 
-        (
-          switch (optWildcardMetadata) {
-          | Some(wildcardMetadata) =>
-            OkJson(wildcardMetadata->WildcardMetadata.wildcardMetaData_encode)
-          | None => NotFound("Couldn't find a token of that id")
-          }
+        Js.log2("wc data", optWildcardData);
+        (switch(optWildcardData) {
+        | Some(wildcardData) => (
+            OkJson(
+              wildcardData
+              ->body_out_encode
+            )
         )
+        | None => NotFound("Couldn't find image metadata")})
         ->async;
       },
     });
